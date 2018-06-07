@@ -1,45 +1,49 @@
-// const fs = require('fs');
-// const path = require('path');
-// const async = require('async');
+const fs = require('fs')
+const async = require('async')
+const gulp = require('gulp')
+const tap = require('gulp-tap')
+const request = require('request')
 
-module.exports = (auth, file) => {
-  console.log('Deploy was called')
-  console.log(auth)
-  // async.series([
-  //   (next) => {
-  //     console.log('authenticating');
-  //     return request.post({
-  //       url: `http://${ auth.host }:${ auth.port }/api/login`,
-  //       form: {
-  //         'user': auth.username,
-  //         'password': auth.password
-  //       }
-  //     }, (err, res, body) => {
-  //       if(err) throw err;
-  //       try {
-  //         const { authToken, userId } = JSON.parse(body).data;
-  //         auth = Object.assign(auth, {authToken, userId});
-  //         console.log('auth updated with', auth);
-  //       } catch (e) {
-  //         console.log('Could not login with provided credentials');
-  //         return;
-  //       }
-  //       next();
-  //     });
-  //   },
-  //   (next) => {
-  //     console.log('auth is: ', auth);
-  //     const data = new formData();
-  //     data.append('app', fs.createReadStream(item.path));
-  //     data.submit({
-  //         host: auth.host,
-  //         port: auth.port,
-  //         path: auth.path,
-  //         headers: {'X-User-Id': auth.userId, 'X-Auth-Token': auth.authToken}
-  //     }, (err) => {
-  //       if(err) throw err;
-  //       next();
-  //     });
-  //   }
-  // ]);
+module.exports = (context, auth, callback) => {
+  gulp.src('./dist/*.zip')
+  .pipe(tap((item) => {
+    async.series([
+      (next) => {
+        context.log('authenticating');
+        request.post({
+          url: `${ auth.host }/api/login`,
+          form: {
+            'user': auth.username,
+            'password': auth.password
+          }
+        }, (err, res, body) => {
+          if(err) throw err;
+          try {
+            const { authToken, userId } = JSON.parse(body).data;
+            auth = Object.assign(auth, {authToken, userId});
+            context.log('User authenticated succesfully');
+          } catch (e) {
+            context.log('Could not login with provided credentials');
+            callback();
+          }
+          next();
+        });
+      },
+      (next) => {
+        request.post({
+          url: `${ auth.host }/api/apps`,
+          formData: {
+            'app': fs.createReadStream(item.path)
+          },
+          headers: {'X-User-Id': auth.userId, 'X-Auth-Token': auth.authToken}
+        }, (err, res, body) => {
+          if(err) context.log('Error uploading app to', auth.host, err);
+          context.log(res);
+          context.log('App uploaded successfully to ', auth.host);
+          next();
+        });
+      }
+    ]);
+  }));
+  callback();
 }

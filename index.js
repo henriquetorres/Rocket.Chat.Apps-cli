@@ -2,6 +2,7 @@
 
 const create = require('./create.js');
 const deploy = require('./deploy.js');
+const build = require('./build.js');
 
 const async = require('async');
 
@@ -14,10 +15,19 @@ vorpal
   .action(function (args, cb) {
     if (args) {
       this.log(args);
-      create(args);
+      create(this, args, cb);
     } else {
-      throw new Error('no args found');
+      this.log('no args found');
+      cb();
     }
+  });
+
+vorpal
+  .command('build')
+  .alias('package')
+  .description('Build your apps')
+  .action(function (args, cb) {
+    build(this, args, cb);
   });
 
 vorpal
@@ -64,9 +74,8 @@ vorpal
         next()
       })
     ], (err) => {
-      if (err) throw new Error('There was a problem with user input values')
-      deploy(auth);
-      cb();
+      if (err) this.log('There was a problem with user input values')
+      deploy(this, auth, cb);
     })
 
   });
